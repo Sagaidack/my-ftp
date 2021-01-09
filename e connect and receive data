@@ -1,0 +1,41 @@
+[33mcommit 22c416b1b2036ed353bd6513b16f5adafd266a9f[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Sat Jan 9 18:39:37 2021 +0200
+
+    add method close connect and receive data
+
+[33mcommit ea480f654890c00ca7ff0d2e5af0844bc953faaf[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Sat Jan 9 17:15:37 2021 +0200
+
+    add start work client
+
+[33mcommit abcb409c7ff30b742c77629979a9d3413806ace3[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Sat Jan 9 17:10:54 2021 +0200
+
+    add init client socket
+
+[33mcommit 3e26f3b9bd1c25a8a6853db77185a01a5d492fb1[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Sat Jan 9 17:04:53 2021 +0200
+
+    add in server method close connect
+
+[33mcommit 1f721bbbf1f865cabeddc4ffb7149e79e82fa39b[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Sat Jan 9 16:45:58 2021 +0200
+
+    add server Upload method and Download method
+
+[33mcommit b02af6f68c07c9054be302704f55fa6cfdf57d44[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Fri Jan 8 12:11:07 2021 +0200
+
+    add a query method processing method and a header processing method
+
+[33mcommit 1c9060004f94d87512f5b78ea873d955ad466dcc[m
+Author: Sagaidak <gith.num1@gmail.com>
+Date:   Fri Jan 8 12:05:53 2021 +0200
+
+    add init and work server and masoge

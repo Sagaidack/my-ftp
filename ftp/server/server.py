@@ -1,53 +1,116 @@
 import socket
 import typing
+from typing import Tuple
+import io
+
+from ftp.server.massage import Massage
+from .status_code import StatusCode
 
 
 class ServerSocket:
     def __init__(self, host: str="localhost", port: int=7474) -> None:
-        self.socket = socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.BUFFER = 4048
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.BUFFER: int = 4048
         self.host = host
         self.port = port
+        self.code_msg = StatusCode()
         self.msg = Massage()
 
     def start(self) -> None:
        host = self.host
        port = self.port
        sock = self.socket
+
        sock.bind((host, port))
        sock.listen()
        while True:
-           with self.sock:
-               client_sock, addr = self.process_client()
-               self.satart_communication(client_sock)
+           with sock:
+               client_sock, addr = self._process_client(sock)
+               self.start_communication(client_sock)
     
-    def _process_clietnt(self)
-        return self.sock.accept()
+    def _process_client(self, sock) -> typing.Tuple:
+        return sock.accept()
 
     def start_communication(self, cl: socket.socket) -> None:
-        handel_method(self, cl)
+        self.handle_method(cl)
 
-    def _get_req_line(self, client_sock: socket.socket) -> str:
-        obj = ""
+    def _get_req_line(self, client_sock: socket.socket) -> bytes:
+        byte_line: bytes
         while True:
-            byte = self.client_sock.recv(1)
-            char = byte.decode("UTF-8")
-            if char == "\n":
+            byte = client_sock.recv(1)
+            if byte == b"\n":
                 break
-            obj = obj + char
-        return obj
+            byte_line = byte_line + byte
+        return byte_line
     
-    def get_method(self, cl: socket.socket) -> str:
+    def get_method(self, cl: socket.socket) -> bytes:
         return self._get_req_line(cl) 
     
-    def get_header(self, cl: socket.socket) -> str:
-        return self._het_req_line(cl) 
+    def get_header(self, cl: socket.socket) -> bytes:
+        return self._get_req_line(cl) 
 
     def handle_method(self, cl: socket.socket) -> None:
-        self.get_method(cl)
+        method = self.get_method(cl)
         if method == "Download":
-            self.send_file()
+            self.send_file(cl)
         elif method == "Upload":
-            self.receive_file()
+            self.receive_file(cl)
         elif method == "Closed":
             self.closed_connect()
+
+    def receive_file(self, cl: socket.socket) -> None:
+        buffer = self.BUFFER
+
+        header = self.get_header(cl)
+        with open(header, "wb") as file:
+            bdata = self.write_to_file(file, cl, buffer)
+            self.send_respones(bdata, cl)
+
+    def _rec_data(self, cl: socket.socket, buffer: int) -> bytes:
+        return cl.recv(buffer)
+
+    def write_to_file(self, file, cl: socket.socket, buffer) -> bytes:
+        bdata = self._rec_data(cl, buffer)
+        file.write(bdata)
+        return bdata
+
+    def closed_connect(self, clie) -> None:
+        ...
+
+    def send_file(self, cl: socket.socket) -> None:
+        buffer = self.BUFFER
+        read_file = self._read_file
+
+        header = self.get_header(cl)
+        with open(header, "rb") as file:
+            while True:
+                bdata: bytes = read_file(file, buffer)
+                self.send_respones(bdata, cl)
+                self._receive_req(cl, buffer)
+     
+    def _receive_req(self, cl: socket.socket, buffer: int) -> Tuple[bytes, bytes, bytes]:
+        status = self._get_req_line(cl)
+        message = self._get_req_line(cl)
+        data_bytes = cl.recv(2048)
+        return status, message, data_bytes 
+
+    def _read_file(self, file: io.BufferedReader, buffer: int) -> bytes:
+        return file.read(buffer)
+            
+    def send_respones(self, bdata: bytes, cl: socket.socket) -> None:
+        respon: bytes = self.create_respones(bdata)
+        cl.send(respon)
+
+    def create_respones(self, bdata: bytes) -> bytes:
+        msg = self.msg
+        code_msg = self.code_msg
+
+        if bdata == b"":
+            status_code: str = msg.process_is_over
+            massage: str = msg.process_is_over
+        respon: bytes = (status_code + massage).encode("UTF-8")
+        if bdata != b"":
+            status_code = msg.process_is_not_over
+            massage = code_msg.process_is_not_over
+            respon = (status_code + massage).encode("UTF-8")
+        return respon

@@ -69,7 +69,7 @@ class ServerSocket:
         header = self.get_header(cl)
         with open(header, "wb") as file:
             bdata = self.write_to_file(file, cl, buffer)
-            self.send_respones(bdata, cl)
+            self.send_respones(bdata, cl) 
 
     def _rec_data(self, cl: socket.socket, buffer: int) -> bytes:
         return cl.recv(buffer)
@@ -116,9 +116,9 @@ class ServerSocket:
         if bdata == b"":
             status_code: str = msg.process_is_over
             massage: str = msg.process_is_over
-        respon: bytes = (status_code + massage).encode("UTF-8")
+        respon: bytes = (status_code + "\n" + massage + "\n").encode("UTF-8")
         if bdata != b"":
             status_code = msg.process_is_not_over
             massage = code_msg.process_is_not_over
-            respon = (status_code + massage).encode("UTF-8")
+            respon = (status_code + "\n" + massage + "\n").encode("UTF-8")
         return respon

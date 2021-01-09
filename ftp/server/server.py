@@ -1,10 +1,11 @@
 import socket
 import typing
-from typing import Tuple
+from typing import Tuple, NoReturn
 import io
 
 from ftp.server.massage import Massage
 from .status_code import StatusCode
+from .exception import Disconnect
 
 
 class ServerSocket:
@@ -16,17 +17,21 @@ class ServerSocket:
         self.code_msg = StatusCode()
         self.msg = Massage()
 
-    def start(self) -> None:
-       host = self.host
-       port = self.port
-       sock = self.socket
+    def start(self) -> NoReturn:
+        host = self.host
+        port = self.port
+        sock = self.socket
 
-       sock.bind((host, port))
-       sock.listen()
-       while True:
-           with sock:
-               client_sock, addr = self._process_client(sock)
-               self.start_communication(client_sock)
+        sock.bind((host, port))
+        sock.listen()
+        while True:
+            with sock:
+                client_sock, addr = self._process_client(sock)
+                try:
+                    self.start_communication(client_sock)
+                except Disconnect:
+                    ...
+            
     
     def _process_client(self, sock) -> typing.Tuple:
         return sock.accept()
@@ -56,7 +61,7 @@ class ServerSocket:
         elif method == "Upload":
             self.receive_file(cl)
         elif method == "Closed":
-            self.closed_connect()
+            self.closed_connect(cl)
 
     def receive_file(self, cl: socket.socket) -> None:
         buffer = self.BUFFER
@@ -74,8 +79,11 @@ class ServerSocket:
         file.write(bdata)
         return bdata
 
-    def closed_connect(self, clie) -> None:
-        ...
+    def closed_connect(self, client) -> NoReturn:
+        client.close()
+        client = None
+        raise Disconnect
+        
 
     def send_file(self, cl: socket.socket) -> None:
         buffer = self.BUFFER

@@ -1,5 +1,5 @@
 import socket
-from typing import NoReturn, Tuple
+from typing import NoReturn, Tuple, Callable, Union
 
 from .exception import Disconnect
 
@@ -29,6 +29,7 @@ class ClientSocket:
 
     def handle_method(self, sock: socket.socket) -> None:
         method, file_path = self.create_request_init()
+        self.send_req(b"", sock, method, file_path)
         if method == "Download":
             self.receive_file(sock, file_path, method)
         elif method == "Upload":
@@ -51,8 +52,20 @@ class ClientSocket:
 
         file_name = self.get_file_name(file_path)
         with open(file_name, "wb") as file:
-            bdata = self.write_to_file(file, sock, buffer)
-            self.send_req(bdata, sock, method, file_name)
+            while True:
+                status_code, massage, bdata = self._receive_res(sock, buffer)
+                stopped = self.handle_res(status_code, massage)
+                if stopped:
+                    break 
+                self.write_to_file(file, buffer, bdata)
+                self.send_req(bdata, sock, method, file_name)
+
+    def handle_res(self, status_code, massage):
+        bmassage = massage.encode("UTF-8")
+        bstatus_code = status_code.encode("UTF-8")
+        if status_code == bstatus_code and massage == bmassage:
+            return True
+        return False
     
     def send_req(self, bdata, sock, method: str, file_name: str):
         breq = self.create_request(method, file_name, bdata)
@@ -61,13 +74,13 @@ class ClientSocket:
     def create_request(self, method: str, file_name: str, bdata: bytes):
         bmethod: bytes = method.encode("UTF-8")
         bfile_name: bytes = file_name.encode("UTF-8")
-        return bmethod + "\n" + bfile_name + "\n" + bdata
+        go_new_line = "\n".encode("UTF-8")
+        return bmethod + go_new_line + bfile_name + go_new_line + bdata + go_new_line
 
-    def _rec_data(self, sock: socket.socket, buffer: int) -> bytes:
-        return sock.recv(buffer)
+    # def _rec_data(self, sock: socket.socket, buffer: int) -> bytes:
+    #     return sock.recv(buffer)
 
-    def write_to_file(self, file, sock: socket.socket, buffer) -> bytes:
-        bdata = self._rec_data(sock, buffer)
+    def write_to_file(self, file, buffer: int, bdata: bytes) -> bytes:
         file.write(bdata)
         return bdata
 

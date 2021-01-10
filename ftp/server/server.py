@@ -4,8 +4,8 @@ from typing import Tuple, NoReturn
 import io
 
 from ftp.server.massage import Massage
-from .status_code import StatusCode
-from .exception import Disconnect
+from ftp.server.status_code import StatusCode
+from ftp.server.exception import Disconnect
 
 
 class ServerSocket:
@@ -26,21 +26,23 @@ class ServerSocket:
         sock.listen()
         while True:
             with sock:
-                client_sock, addr = self._process_client(sock)
+                client_sock, addr = self._process_client()
                 try:
                     self.start_communication(client_sock)
                 except Disconnect:
                     ...
             
     
-    def _process_client(self, sock) -> typing.Tuple:
+    def _process_client(self) -> Tuple[socket.socket, Tuple[int, int]]:
+        sock = self.socket
+        print(sock, "\n")
         return sock.accept()
 
     def start_communication(self, cl: socket.socket) -> None:
         self.handle_method(cl)
 
     def _get_req_line(self, client_sock: socket.socket) -> bytes:
-        byte_line: bytes
+        byte_line: bytes = b""
         while True:
             byte = client_sock.recv(1)
             if byte == b"\n":
@@ -89,36 +91,45 @@ class ServerSocket:
         buffer = self.BUFFER
         read_file = self._read_file
 
-        header = self.get_header(cl)
-        with open(header, "rb") as file:
+        file_path = self.get_header(cl)
+        with open(file_path, "rb") as file:
             while True:
                 bdata: bytes = read_file(file, buffer)
-                self.send_respones(bdata, cl)
+                status_code, massage = self.send_respones(bdata, cl)
+                stopped = self.handle_respones(status_code, massage)
+                if stopped:
+                    break 
                 self._receive_req(cl, buffer)
-     
+    
     def _receive_req(self, cl: socket.socket, buffer: int) -> Tuple[bytes, bytes, bytes]:
         status = self._get_req_line(cl)
         message = self._get_req_line(cl)
         data_bytes = cl.recv(2048)
         return status, message, data_bytes 
 
-    def _read_file(self, file: io.BufferedReader, buffer: int) -> bytes:
+    def _read_file(self, file, buffer: int) -> bytes:
         return file.read(buffer)
             
-    def send_respones(self, bdata: bytes, cl: socket.socket) -> None:
-        respon: bytes = self.create_respones(bdata)
+    def send_respones(self, bdata: bytes, cl: socket.socket) -> Tuple[str, str]:
+        respon, status_code, massage = self.create_respones(bdata)
         cl.send(respon)
+        return status_code, massage
 
-    def create_respones(self, bdata: bytes) -> bytes:
+    def handle_respones(self, status_code: str, massage: str) -> bool:
+        if status_code == "1" and massage == "process is over":
+            return True
+        return False
+
+    def create_respones(self, bdata: bytes) -> Tuple[bytes, str, str]:
         msg = self.msg
         code_msg = self.code_msg
 
         if bdata == b"":
             status_code: str = msg.process_is_over
             massage: str = msg.process_is_over
-        respon: bytes = (status_code + "\n" + massage + "\n").encode("UTF-8")
+            respon: bytes = (status_code + "\n" + massage + "\n" + "\n").encode("UTF-8")
         if bdata != b"":
             status_code = msg.process_is_not_over
             massage = code_msg.process_is_not_over
-            respon = (status_code + "\n" + massage + "\n").encode("UTF-8")
-        return respon
+            respon = (status_code + "\n" + massage + "\n").encode("UTF-8") + bdata + "\n".encode("UTF-8")
+        return respon, status_code, massage

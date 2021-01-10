@@ -1,6 +1,6 @@
 import socket
 import typing
-from typing import Tuple, NoReturn
+from typing import Tuple, NoReturn, cast
 import io
 
 from ftp.server.massage import Massage
@@ -11,7 +11,7 @@ from ftp.server.exception import Disconnect
 class ServerSocket:
     def __init__(self, host: str="localhost", port: int=7474) -> None:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.BUFFER: int = 4048
+        self.BUFFER = 4048
         self.host = host
         self.port = port
         self.code_msg = StatusCode()
@@ -24,18 +24,18 @@ class ServerSocket:
 
         sock.bind((host, port))
         sock.listen()
-        while True:
-            with sock:
+        with sock:
+            while True:
                 client_sock, addr = self._process_client()
+                self.client_sock = client_sock
                 try:
-                    self.start_communication(client_sock)
+                    self.start_communication(self.client_sock)
                 except Disconnect:
-                    ...
-            
-    
+                    break
+
+
     def _process_client(self) -> Tuple[socket.socket, Tuple[int, int]]:
         sock = self.socket
-        print(sock, "\n")
         return sock.accept()
 
     def start_communication(self, cl: socket.socket) -> None:
@@ -51,18 +51,20 @@ class ServerSocket:
         return byte_line
     
     def get_method(self, cl: socket.socket) -> bytes:
-        return self._get_req_line(cl) 
+        return self._get_req_line(cl)
     
-    def get_header(self, cl: socket.socket) -> bytes:
-        return self._get_req_line(cl) 
+    def get_header(self, cl: socket.socket) -> str:
+        bfile_path = self._get_req_line(cl)
+        file_path = bfile_path.decode("UTF-8")
+        return file_path
 
     def handle_method(self, cl: socket.socket) -> None:
         method = self.get_method(cl)
-        if method == "Download":
+        if method == b"Download":
             self.send_file(cl)
-        elif method == "Upload":
+        elif method == b"Upload":
             self.receive_file(cl)
-        elif method == "Closed":
+        elif method == b"Closed":
             self.closed_connect(cl)
 
     def receive_file(self, cl: socket.socket) -> None:
@@ -81,9 +83,9 @@ class ServerSocket:
         file.write(bdata)
         return bdata
 
-    def closed_connect(self, client) -> NoReturn:
+    def closed_connect(self, client: socket.socket) -> NoReturn:
         client.close()
-        client = None
+        client = cast(socket.socket, None)
         raise Disconnect
         
 
@@ -94,9 +96,9 @@ class ServerSocket:
         file_path = self.get_header(cl)
         with open(file_path, "rb") as file:
             while True:
-                bdata: bytes = read_file(file, buffer)
+                bdata = read_file(file, buffer)
                 status_code, massage = self.send_respones(bdata, cl)
-                stopped = self.handle_respones(status_code, massage)
+                stopped = self.handle_request(status_code, massage)
                 if stopped:
                     break 
                 self._receive_req(cl, buffer)
@@ -115,7 +117,7 @@ class ServerSocket:
         cl.send(respon)
         return status_code, massage
 
-    def handle_respones(self, status_code: str, massage: str) -> bool:
+    def handle_request(self, status_code: str, massage: str) -> bool:
         if status_code == "1" and massage == "process is over":
             return True
         return False
@@ -125,11 +127,11 @@ class ServerSocket:
         code_msg = self.code_msg
 
         if bdata == b"":
-            status_code: str = msg.process_is_over
+            status_code: str = code_msg.process_is_over
             massage: str = msg.process_is_over
-            respon: bytes = (status_code + "\n" + massage + "\n" + "\n").encode("UTF-8")
+            respon: bytes = (status_code + "\n" + massage + "\n").encode("UTF-8")
         if bdata != b"":
-            status_code = msg.process_is_not_over
-            massage = code_msg.process_is_not_over
+            status_code = code_msg.process_is_not_over
+            massage = msg.process_is_not_over
             respon = (status_code + "\n" + massage + "\n").encode("UTF-8") + bdata + "\n".encode("UTF-8")
         return respon, status_code, massage
